@@ -2,9 +2,9 @@
 
 This is a baby rasterizer based on [ssloy's tinyrenderer](https://github.com/ssloy/tinyrenderer). The purpose of this little project is to give myself a better understanding of basic CG techniques and algorithms by coding them out.
 
-![frame.tga](./babyrasterizer/output/frame.tga)
+![frame.tga](https://github.com/pan64271/babyrasterizer/blob/master/babyrasterizer/output/frame.tga)
 
-![depth.tga](./babyrasterizer/output/depth.tga)
+![depth.tga](https://github.com/pan64271/babyrasterizer/blob/master/babyrasterizer/output/depth.tga)
 
 ## Features
 
