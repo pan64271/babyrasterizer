@@ -21,7 +21,11 @@ This is a baby rasterizer based on [ssloy's tinyrenderer](https://github.com/ssl
 ## References
 
 [ssloy's tinyrenderer](https://github.com/ssloy/tinyrenderer)
+
 [GAMES101](http://games-cn.org/intro-graphics/)
+
 [孙小磊的知乎专栏-计算机图形学系列笔记](https://www.zhihu.com/column/c_1249465121615204352)
+
 [Fundamentals of Computer Graphics, Fourth Edition](https://book.douban.com/subject/26868819/)
+
 [LearnOpenGL-CN](https://learnopengl-cn.github.io/)
