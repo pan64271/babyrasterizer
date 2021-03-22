@@ -72,7 +72,8 @@ struct Shader : public IShader
 
 		vWorldCoords.set_col(nthvert, proj<3>(worldCoord) / w);
 
-		screenCoord = screenCoord / screenCoord[3];
+		screenCoord = screenCoord / w;
+		screenCoord[2] = screenCoord[2] / w;
 		screenCoord[3] = 1.0f / w;
 		vScreenCoords.set_col(nthvert, screenCoord);
 
@@ -220,6 +221,8 @@ void PhongShading(Model **modelData, Matrix *modelTrans, unsigned cntModel, floa
 	Matrix PV = project * view;
 
 	Vec3f *colorBuffer = new Vec3f[SCREEN_WIDTH * SCREEN_HEIGHT * CNT_SAMPLE];
+	for (int i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT * CNT_SAMPLE; ++i)
+		colorBuffer[i] = Vec3f(0, 0, 0);
 
 	for (unsigned m = 0; m < cntModel; ++m)
 	{
@@ -240,7 +243,7 @@ void PhongShading(Model **modelData, Matrix *modelTrans, unsigned cntModel, floa
 		{
 			// back-face culling
 			Vec3f n = cross(modelData[m]->vert(i, 1) - modelData[m]->vert(i, 0), modelData[m]->vert(i, 2) - modelData[m]->vert(i, 0)).normalize();
-			n = proj<3>((view * modelTrans[m]).invert_transpose() * embed<4>(n));
+			n = proj<3>((view * modelTrans[m]).invert_transpose() * Vec4f(n, 0.0f));
 			if (n.z <= 0.0f) continue;
 
 			// z-axis clipping
@@ -292,6 +295,8 @@ void PhongShading(Model **modelData, Matrix *modelTrans, unsigned cntModel, floa
 	{
 		for (unsigned y = 0; y < SCREEN_HEIGHT; ++y)
 		{
+			if (x == 362 && y == 417)
+				x = x;
 			Vec3f color(0.0f, 0.0f, 0.0f);
 			for (unsigned i = 0; i < CNT_SAMPLE; ++i)
 			{
@@ -333,6 +338,7 @@ int main()
 	Matrix *modelTrans = new Matrix[cntModel];
 	modelTrans[0] = Matrix::identity();
 	modelTrans[1] = Matrix::identity();
+	modelTrans[1][1][3] = -0.3f;
 
 	// shadow pass
 	TGAImage depth(SCREEN_WIDTH, SCREEN_HEIGHT, TGAImage::RGB);

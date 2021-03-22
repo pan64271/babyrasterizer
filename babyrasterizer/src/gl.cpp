@@ -110,8 +110,13 @@ void triangle(Vec4f *screenCoords, IShader &shader, Vec3f *colorBuffer, float *z
 			{
 				Vec2f sample(x + d[i][0], y + d[i][1]);
 				Vec3f barSample = barycentric(A, B, C, sample);
+				float w = screenCoords[0].w * barSample.x + screenCoords[1].w * barSample.y + screenCoords[2].w * barSample.z;
+				w = 1.0f / w;
 				float z = screenCoords[0].z * barSample.x + screenCoords[1].z * barSample.y + screenCoords[2].z * barSample.z;
+				z = z * w;
 				unsigned idx = cntSample * (y*width + x) + i;
+				if (barSample.x < 0 || barSample.y < 0 || barSample.z < 0) continue;
+
 				if (barSample.x < 0 || barSample.y < 0 || barSample.z < 0 || z < zBuffer[idx]) continue;
 
 				if (!covered) // calculate the color only once for each pixel
