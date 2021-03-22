@@ -9,7 +9,7 @@
 struct DepthShader : public IShader
 {
 	// uniform variables
-	Matrix uVpPVM;
+	Matrix uVpPV;
 	// varying variables
 	mat<4, 3, float> vScreenCoords;
 
@@ -18,7 +18,7 @@ struct DepthShader : public IShader
 
 	Vec4f vertex(unsigned nthvert, Vec4f worldCoord, Vec2f uv, Vec3f normal)
 	{
-		Vec4f screenCoord = uVpPVM * worldCoord;
+		Vec4f screenCoord = uVpPV * worldCoord;
 		screenCoord = screenCoord / screenCoord[3];
 		vScreenCoords.set_col(nthvert, screenCoord);
 
@@ -110,7 +110,7 @@ struct Shader : public IShader
 		
 		// calculate direction vectors for lattter use
 		Vec3f worldCoord = vWorldCoords * bar * w;
-		Vec3f lightDir = (uLightPos - worldCoord).normalize();
+		Vec3f lightDir = uLightPos.normalize();
 		Vec3f eyeDir = (uEyePos - worldCoord).normalize();
 		Vec3f half = (lightDir + eyeDir) / 2.0f;
 
@@ -175,7 +175,7 @@ Matrix shadowMapping(Model **modelData, Matrix *modelTrans, unsigned cntModel, f
 	{
 		// create shader, set uniform variables of shader
 		DepthShader depthShader;
-		depthShader.uVpPVM = vp * project*view*modelTrans[m];
+		depthShader.uVpPV = vp * project*view;
 
 		// rendering pipeline: calculate depth vewing from the light
 		Matrix modelInverTranspose = modelTrans[m].invert_transpose();
