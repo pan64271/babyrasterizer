@@ -54,7 +54,7 @@ struct Shader : public IShader
 	Vec3f uEyePos, uLightPos, uTangent, uBitangent;
 	LightColor uLightColor;
 	float *uShadowBuffer;
-	unsigned uShadowBufferWidth;
+	unsigned uShadowBufferWidth, uShadowBufferHeight;
 	// varying variables
 	mat<4, 3, float> vScreenCoords;
 	mat<2, 3, float> vUv;
@@ -127,13 +127,26 @@ struct Shader : public IShader
 		Vec3f specular = uLightColor.specular * (materialSpecular * powf(std::max(0.0f, dot(n, half)), 32.0f));
 
 		// calculate shadow
-		float shadow = 1.0f;
+		float shadow = 0.0f;
 		Vec3f lightSpacePos = vLightSpacePos * bar * w;
-		if (lightSpacePos.z + 0.1f < uShadowBuffer[int(lightSpacePos.y)*uShadowBufferWidth + int(lightSpacePos.x)])
-			shadow = 0.3f;
+		int cntSample = 0;
+		for (int dx = -2; dx < 2; dx++)
+		{
+			int sampleX = lightSpacePos.x + dx;
+			if (sampleX < 0 || sampleX >= uShadowBufferWidth) continue;
+			for (int dy = -2; dy < 2; dy++)
+			{
+				int sampleY = lightSpacePos.y + dy;
+				if (sampleY < 0 || sampleY >= uShadowBufferHeight) continue;
+				cntSample++;
+				if (lightSpacePos.z + 0.1f < uShadowBuffer[sampleY * uShadowBufferWidth + sampleX])
+					shadow += 1.0f;
+			}
+		}
+		shadow /= cntSample;
 
 		// Blinn-Phong lighting model
-		color = ambient + (diffuse + specular) * shadow;
+		color = ambient + (diffuse + specular) * (1.0f - shadow);
 
 		return true;
 	}
@@ -237,6 +250,7 @@ void PhongShading(Model **modelData, Matrix *modelTrans, unsigned cntModel, floa
 		PhongShader.uLightColor = lightColor;
 		PhongShader.uShadowBuffer = shadowBuffer;
 		PhongShader.uShadowBufferWidth = SHADOW_WIDTH;
+		PhongShader.uShadowBufferHeight = SHADOW_HEIGHT;
 
 		// rendering pipeline: calculate info for each sample
 		for (int i = 0; i < modelData[m]->nfaces(); ++i)
