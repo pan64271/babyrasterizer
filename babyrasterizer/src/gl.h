@@ -36,6 +36,6 @@ Vec3f barycentric(Vec2f A, Vec2f B, Vec2f C, Vec2f P);
 void triangle(Vec4f *screenCoords, IShader &shader, Vec3f *colorBuffer, float *zBuffer, unsigned width, unsigned height, const float d[][2], unsigned cntSample);
 
 // functions for clipping
-void zClip(const std::vector<Vertex> &original, std::vector<Vertex> &result);
-void singleFaceZClip(const std::vector<Vertex> &original, std::vector<Vertex> &result);
-void pushIntersection(std::vector<Vertex> &result, Vertex now, Vertex next);
+void homogeneousClip(const std::vector<Vertex> &original, std::vector<Vertex> &result, unsigned axis);
+void singleFaceZClip(const std::vector<Vertex> &original, std::vector<Vertex> &result, unsigned axis);
+void pushIntersection(std::vector<Vertex> &result, Vertex now, Vertex next, unsigned axis);

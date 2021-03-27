@@ -132,55 +132,55 @@ void triangle(Vec4f *screenCoords, IShader &shader, Vec3f *colorBuffer, float *z
 	}
 }
 
-void zClip(const std::vector<Vertex> &original, std::vector<Vertex> &result)
+void homogeneousClip(const std::vector<Vertex> &original, std::vector<Vertex> &result, unsigned axis)
 {
 	std::vector<Vertex> intermediate;
-	singleFaceZClip(original, intermediate);
+	singleFaceZClip(original, intermediate, axis);
 	for (auto &vertex : intermediate)
 	{
-		vertex.clipCoord.z = -vertex.clipCoord.z;
+		vertex.clipCoord[axis] = -vertex.clipCoord[axis];
 	}
 
-	singleFaceZClip(intermediate, result);
+	singleFaceZClip(intermediate, result, axis);
 	for (auto &vertex : result)
 	{
-		vertex.clipCoord.z = -vertex.clipCoord.z;
+		vertex.clipCoord[axis] = -vertex.clipCoord[axis];
 	}
 }
 
-void singleFaceZClip(const std::vector<Vertex> &original, std::vector<Vertex> &result)
+void singleFaceZClip(const std::vector<Vertex> &original, std::vector<Vertex> &result, unsigned axis)
 {
 	for (unsigned i = 0; i < original.size(); ++i)
 	{
 		Vertex now = original[i], next = original[(i + 1) % original.size()];
-		float checkNow = now.clipCoord.z / now.clipCoord.w, checkNext = next.clipCoord.z / next.clipCoord.w;
+		float checkNow = now.clipCoord[axis] / now.clipCoord.w, checkNext = next.clipCoord[axis] / next.clipCoord.w;
 		if (checkNow <= 1.0f)
 		{
 			result.push_back(now);
 		}
 		if ((checkNow < 1.0f && checkNext > 1.0f) || (checkNow > 1.0f && checkNext < 1.0f))
 		{
-			pushIntersection(result, now, next);
+			pushIntersection(result, now, next, axis);
 		}
 	}
 }
 
-void pushIntersection(std::vector<Vertex> &result, Vertex now, Vertex next)
+void pushIntersection(std::vector<Vertex> &result, Vertex now, Vertex next, unsigned axis)
 {
-	// calculate the t for equation: w0 + t*(w1-w0) = z0 + t*(z1-z0)
-	float t0 = now.clipCoord.w - now.clipCoord.z;
-	float t1 = next.clipCoord.w - next.clipCoord.z;
+	// calculate the t for equation(assume that we're clipping for z-axis): w0 + t*(w1-w0) = z0 + t*(z1-z0)
+	float t0 = now.clipCoord.w - now.clipCoord[axis];
+	float t1 = next.clipCoord.w - next.clipCoord[axis];
 	float t = t0 / (t0 - t1);
 
-	float z = 1.0f / now.clipCoord.w + t * (1.0f / next.clipCoord.w - 1.0f / now.clipCoord.w);
-	z = 1.0f / z;
+	float w = 1.0f / now.clipCoord.w + t * (1.0f / next.clipCoord.w - 1.0f / now.clipCoord.w);
+	w = 1.0f / w;
 	Vertex inter;
 	inter.clipCoord = now.clipCoord + (next.clipCoord - now.clipCoord) * t;
 	inter.worldCoord = now.worldCoord + (next.worldCoord - now.worldCoord) * t;
-	inter.worldCoord = inter.worldCoord * z;
+	inter.worldCoord = inter.worldCoord * w;
 	inter.normal = now.normal + (next.normal * now.normal) * t;
-	inter.normal = inter.normal * z;
+	inter.normal = inter.normal * w;
 	inter.uv = now.uv + (next.uv - now.uv) * t;
-	inter.uv = inter.uv * z;
+	inter.uv = inter.uv * w;
 	result.push_back(inter);
 }

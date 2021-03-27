@@ -176,13 +176,11 @@ Vec3f eye(1.0f, 1.0f, 3.0f);
 Vec3f center(0.0f, 0.0f, 0.0f);
 Vec3f up(0.0f, 1.0f, 0.0f);
 
-Matrix shadowMapping(Model **modelData, Matrix *modelTrans, unsigned cntModel, float *shadowBuffer, TGAImage &depth)
+Matrix shadowMapping(Model **modelData, Matrix *modelTrans, unsigned cntModel, float *zBuffer, Vec3f *colorBuffer, TGAImage &depth)
 {
 	Matrix view = lookat(lightPos, center, up);
 	Matrix project = ortho(-2.0f, 2.0f, -2.0f, 2.0f, -0.01f, -10.0f);
 	Matrix vp = viewport(SHADOW_WIDTH, SHADOW_HEIGHT);
-
-	Vec3f *colorBuffer = new Vec3f[SHADOW_WIDTH * SHADOW_HEIGHT];
 
 	for (unsigned m = 0; m < cntModel; ++m)
 	{
@@ -205,37 +203,19 @@ Matrix shadowMapping(Model **modelData, Matrix *modelTrans, unsigned cntModel, f
 			}
 
 			// ransterization + fragment processing
-			triangle(screenCoords, depthShader, colorBuffer, shadowBuffer, SHADOW_WIDTH, SHADOW_HEIGHT, D_NonMSAA, 1);
+			triangle(screenCoords, depthShader, colorBuffer, zBuffer, SHADOW_WIDTH, SHADOW_HEIGHT, D_NonMSAA, 1);
 		}
 	}
-	std::cerr << "finish shadow depth buffer calculation" << std::endl;
-
-	// write depth color to depth.tga (for debugging)
-	for (unsigned x = 0; x < SHADOW_WIDTH; ++x)
-	{
-		for (unsigned y = 0; y < SHADOW_HEIGHT; ++y)
-		{
-			Vec3f color = colorBuffer[y * SHADOW_WIDTH + x];
-			depth.set(x, y, TGAColor(color.x, color.y, color.z, 255));
-		}
-	}
-	std::cerr << "finish writing depth.tga" << std::endl;
 	
-	// deallocate resources
-	delete[] colorBuffer;
 	return vp * project * view;
 }
 
-void PhongShading(Model **modelData, Matrix *modelTrans, unsigned cntModel, float *zBuffer, Matrix lightVpPV, float *shadowBuffer, TGAImage &frame)
+void PhongShading(Model **modelData, Matrix *modelTrans, unsigned cntModel, float *zBuffer, Vec3f *colorBuffer, Matrix lightVpPV, float *shadowBuffer, TGAImage &frame)
 {
 	Matrix view = lookat(eye, center, up);
 	Matrix project = projection(PI / 4.0f, 1.0f, -0.01f, -10.0f);
 	Matrix vp = viewport(SCREEN_WIDTH, SCREEN_HEIGHT);
 	Matrix PV = project * view;
-
-	Vec3f *colorBuffer = new Vec3f[SCREEN_WIDTH * SCREEN_HEIGHT * CNT_SAMPLE];
-	for (int i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT * CNT_SAMPLE; ++i)
-		colorBuffer[i] = Vec3f(0, 0, 0);
 
 	for (unsigned m = 0; m < cntModel; ++m)
 	{
@@ -272,7 +252,7 @@ void PhongShading(Model **modelData, Matrix *modelTrans, unsigned cntModel, floa
 				Vertex vertex(worldCoord, clipCoord, uv, normal);
 				original.push_back(vertex);
 			}
-			zClip(original, clipped);
+			homogeneousClip(original, clipped, 2);
 
 			// frustum culling (only z-axis)
 			if (clipped.size() < 3) continue;
@@ -302,43 +282,60 @@ void PhongShading(Model **modelData, Matrix *modelTrans, unsigned cntModel, floa
 			}
 		}
 	}
-	std::cerr << "finish shading" << std::endl;
+}
 
-	// write shading color to frame.tga, average the MSAA samples for each pixel
-	for (unsigned x = 0; x < SCREEN_WIDTH; ++x)
+void writeDepth(TGAImage &depth, Vec3f *colorBuffer)
+{
+	// write depth color to TGAImage depth (for debugging)
+	for (unsigned x = 0; x < depth.get_width(); ++x)
 	{
-		for (unsigned y = 0; y < SCREEN_HEIGHT; ++y)
+		for (unsigned y = 0; y < depth.get_height(); ++y)
+		{
+			Vec3f color = colorBuffer[y * depth.get_width() + x];
+			depth.set(x, y, TGAColor(color.x, color.y, color.z, 255));
+		}
+	}
+}
+
+void writeFrame(TGAImage &frame, float *zBuffer, Vec3f *colorBuffer, unsigned cntSample)
+{
+	// write shading color to TGAImage frame, average the MSAA samples for each pixel
+	for (unsigned x = 0; x < frame.get_width(); ++x)
+	{
+		for (unsigned y = 0; y < frame.get_height(); ++y)
 		{
 			if (x == 362 && y == 417)
 				x = x;
 			Vec3f color(0.0f, 0.0f, 0.0f);
-			for (unsigned i = 0; i < CNT_SAMPLE; ++i)
+			for (unsigned i = 0; i < cntSample; ++i)
 			{
-				if (zBuffer[CNT_SAMPLE * (y*SCREEN_WIDTH + x) + i] > -std::numeric_limits<float>::max())
+				if (zBuffer[cntSample * (y*frame.get_width() + x) + i] > -std::numeric_limits<float>::max())
 				{
-					color = color + colorBuffer[CNT_SAMPLE * (y*SCREEN_WIDTH + x) + i];
+					color = color + colorBuffer[cntSample * (y*frame.get_width() + x) + i];
 				}
 			}
-			color = color / CNT_SAMPLE;
+			color = color / cntSample;
 			frame.set(x, y, TGAColor(color.x, color.y, color.z, 255));
 		}
 	}
-	std::cerr << "finish writing frame.tga" << std::endl;
-
-	// deallocate resources
-	delete[] colorBuffer;
 }
 
 int main()
 {
-	// allocate buffers for two passes
+	// allocate buffers
 	float *zBuffer = new float[SCREEN_WIDTH * SCREEN_HEIGHT * CNT_SAMPLE];
-	float *shadowBuffer = new float[SCREEN_WIDTH * SCREEN_HEIGHT];
+	Vec3f *colorBuffer = new Vec3f[SCREEN_WIDTH * SCREEN_HEIGHT * CNT_SAMPLE];
+	float *shadowZBuffer = new float[SCREEN_WIDTH * SCREEN_HEIGHT];
+	Vec3f *shadowColorBuffer = new Vec3f[SCREEN_WIDTH * SCREEN_HEIGHT];
 	for (int i = 0; i < SCREEN_WIDTH*SCREEN_HEIGHT; ++i)
 	{
 		for (int j = 0; j < CNT_SAMPLE; ++j)
+		{
 			zBuffer[CNT_SAMPLE * i + j] = -std::numeric_limits<float>::max();
-		shadowBuffer[i] = -std::numeric_limits<float>::max();
+			colorBuffer[CNT_SAMPLE * i + j] = Vec3f(0.0f, 0.0f, 0.0f);
+		}
+		shadowZBuffer[i] = -std::numeric_limits<float>::max();
+		shadowColorBuffer[i] = Vec3f(0.0f, 0.0f, 0.0f);
 	}
 
 	// load model
@@ -356,15 +353,21 @@ int main()
 
 	// shadow pass
 	TGAImage depth(SCREEN_WIDTH, SCREEN_HEIGHT, TGAImage::RGB);
-	Matrix lightVpPV = shadowMapping(modelData, modelTrans, cntModel, shadowBuffer, depth);
+	Matrix lightVpPV = shadowMapping(modelData, modelTrans, cntModel, shadowZBuffer, shadowColorBuffer, depth);
+	std::cerr << "finish shadow depth buffer calculation" << std::endl;
+	writeDepth(depth, shadowColorBuffer);
 	depth.write_tga_file("./output/depth.tga");
+	std::cerr << "finish writing depth.tga" << std::endl;
 	std::cerr << "Shadow Pass Over" << std::endl << std::endl;
 
 	// shading pass
 	TGAImage frame(SCREEN_WIDTH, SCREEN_HEIGHT, TGAImage::RGB);
-	PhongShading(modelData, modelTrans, cntModel, zBuffer, lightVpPV, shadowBuffer, frame);
-	frame.write_tga_file("./output/frame.tga");
-	std::cerr << "Shading Pass Over" << std::endl;
+	PhongShading(modelData, modelTrans, cntModel, zBuffer, colorBuffer, lightVpPV, shadowZBuffer, frame);
+	std::cerr << "finish shading" << std::endl;
+	writeFrame(frame, zBuffer, colorBuffer, CNT_SAMPLE);
+	frame.write_tga_file("./output/frame.tga"); 
+	std::cerr << "finish writing frame.tga" << std::endl;
+	std::cerr << "Shading Pass Over" << std::endl << std::endl;
 
 	// deallocate resources
 	for (unsigned i = 0; i < cntModel; ++i)
@@ -374,7 +377,9 @@ int main()
 	delete[] modelData;
 	delete[] modelTrans;
 	delete[] zBuffer;
-	delete[] shadowBuffer;
+	delete[] colorBuffer;
+	delete[] shadowZBuffer;
+	delete[] shadowColorBuffer;
 
 	return 0;
 }
