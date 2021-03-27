@@ -15,7 +15,7 @@ This is a baby rasterizer based on [ssloy's tinyrenderer](https://github.com/ssl
 - Blinn-Phong lighting model
 - Phong shading
 - Tangent space normal mapping
-- Shadow mapping (incomplete, shadow texture is not ensured to cover all the frustum yet)
+- Shadow mapping + PCF (incomplete, shadow texture is not ensured to cover all the frustum yet)
 - MSAA
 
 ## References
