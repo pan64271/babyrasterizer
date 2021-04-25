@@ -139,7 +139,7 @@ struct Shader : public IShader
 				int sampleY = lightSpacePos.y + dy;
 				if (sampleY < 0 || sampleY >= uShadowBufferHeight) continue;
 				cntSample++;
-				if (lightSpacePos.z + 0.1f < uShadowBuffer[sampleY * uShadowBufferWidth + sampleX])
+				if (lightSpacePos.z + 0.005f < uShadowBuffer[sampleY * uShadowBufferWidth + sampleX])
 					shadow += 1.0f;
 			}
 		}
